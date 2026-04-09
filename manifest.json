@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Session Recorder",
+  "version": "1.0",
+  "permissions": ["storage", "scripting", "activeTab", "downloads"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["lib/rrweb.min.js", "inject.js"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

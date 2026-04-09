@@ -1,0 +1,82 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>RRWeb Replay + DOM Viewer</title>
+    <!-- rrweb player css -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/rrweb-player@latest/dist/style.css"
+    />
+  </head>
+  <body>
+    <h2>RRWeb Player + DOM (Rendered)</h2>
+    <input type="file" id="fileInput" />
+    <div style="display: flex; height: 90vh">
+      <!-- 🟢 rrweb player -->
+      <div id="player" style="width: 50%; border: 1px solid #ccc"></div>
+      <!-- 🔵 DOM rendered -->
+      <iframe
+        id="dom-frame"
+        style="width: 50%; border: 1px solid #ccc"
+      ></iframe>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/rrweb-player@latest/dist/index.js"></script>
+    <script>
+      const input = document.getElementById("fileInput");
+
+      input.addEventListener("change", async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const text = await file.text();
+        const data = JSON.parse(text);
+        const events = data.events || data;
+
+        startReplay(events);
+      });
+
+      function startReplay(events) {
+        document.getElementById("player").innerHTML = "";
+
+        const player = new rrwebPlayer({
+          target: document.getElementById("player"),
+          props: {
+            events,
+            autoPlay: true,
+          },
+        });
+
+        let lastUpdate = 0;
+
+        player.addEventListener("event-cast", () => {
+          const now = Date.now();
+
+          if (now - lastUpdate < 300) return;
+          lastUpdate = now;
+
+          const replayIframe = document.querySelector("#player iframe");
+          if (!replayIframe) return;
+
+          const doc = replayIframe.contentDocument;
+          if (!doc) return;
+
+          try {
+            let html = doc.documentElement.outerHTML;
+
+            html = html.replace(/<script[\s\S]*?<\/script>/gi, "");
+
+            const domFrame = document.getElementById("dom-frame");
+            const frameDoc = domFrame.contentDocument;
+            frameDoc.open();
+            frameDoc.write(html);
+            frameDoc.close();
+          } catch (err) {
+            console.warn("DOM error:", err);
+          }
+        });
+      }
+    </script>
+  </body>
+</html>
