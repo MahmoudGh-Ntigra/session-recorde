@@ -1,5 +1,5 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <title>RRWeb Replay + DOM + Network</title>
@@ -11,48 +11,82 @@
     />
 
     <style>
-      body {
-        font-family: Arial;
+      /* === Reset & Base === */
+      * {
+        box-sizing: border-box;
         margin: 0;
         padding: 0;
       }
 
-      h2 {
-        padding: 10px;
-        margin: 0;
-        background: #222;
-        color: #fff;
-      }
-
-      #container {
-        display: flex;
-        height: 90vh;
-      }
-
-      #player {
-        width: 50%;
-        border-right: 1px solid #ccc;
-      }
-
-      #right-panel {
-        width: 50%;
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: #f4f5f7;
+        color: #333;
+        height: 100vh;
         display: flex;
         flex-direction: column;
       }
 
+      h2 {
+        padding: 15px 20px;
+        background: #1f2937;
+        color: #fff;
+        font-size: 20px;
+        font-weight: 500;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      }
+
+      #fileInput {
+        margin: 10px 20px;
+        padding: 8px 12px;
+        border-radius: 5px;
+        border: 1px solid #ccc;
+        font-size: 14px;
+        cursor: pointer;
+      }
+
+      #container {
+        flex: 1;
+        display: flex;
+        gap: 10px;
+        padding: 10px 20px;
+      }
+
+      /* === LEFT PANEL - PLAYER === */
+      #player {
+        flex: 1;
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+      }
+
+      /* === RIGHT PANEL - DOM & NETWORK === */
+      #right-panel {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
       #dom-frame {
-        height: 60%;
-        border-bottom: 1px solid #ccc;
+        flex: 3;
+        border-radius: 10px;
+        border: 1px solid #ccc;
+        overflow: auto;
+        box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.05);
       }
 
       #network-log {
-        height: 40%;
-        overflow: auto;
-        padding: 10px;
+        flex: 2;
         background: #111;
         color: #0f0;
+        font-family: "Courier New", Courier, monospace;
         font-size: 12px;
-        font-family: monospace;
+        padding: 10px;
+        border-radius: 10px;
+        overflow-y: auto;
+        box-shadow: inset 0 0 10px rgba(0, 255, 0, 0.1);
       }
 
       .req {
@@ -61,8 +95,39 @@
         padding-bottom: 5px;
       }
 
+      .req div {
+        margin-bottom: 3px;
+      }
+
       .error {
-        color: red;
+        color: #ff4d4f;
+      }
+
+      /* Scrollbar styling */
+      #network-log::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      #network-log::-webkit-scrollbar-thumb {
+        background: #0f0;
+        border-radius: 4px;
+      }
+
+      #network-log::-webkit-scrollbar-track {
+        background: #111;
+      }
+
+      /* Responsive */
+      @media (max-width: 900px) {
+        #container {
+          flex-direction: column;
+        }
+
+        #player,
+        #right-panel {
+          width: 100%;
+          height: 50%;
+        }
       }
     </style>
   </head>
@@ -106,35 +171,28 @@
         document.getElementById("player").innerHTML = "";
         document.getElementById("network-log").innerHTML = "";
 
-        // 🔥 FIX #1 — ensure timestamps exist
         events = events.map((e, i) => {
           if (!e.timestamp) {
-            e.timestamp = Date.now() + i; // fallback (prevents freeze)
+            e.timestamp = Date.now() + i;
           }
           return e;
         });
 
         events.sort((a, b) => a.timestamp - b.timestamp);
 
-        // 🔥 FIX #3 — create player WITHOUT autoplay
         const player = new rrwebPlayer({
           target: document.getElementById("player"),
-          props: {
-            events,
-          },
+          props: { events },
         });
 
-        // 🔥 FIX #4 — force play (fix freeze issue)
         player.play();
 
         let lastUpdate = 0;
         const networkLog = document.getElementById("network-log");
 
         player.addEventListener("event-cast", (e) => {
-          console.log(e);
           const event = e;
 
-          // 🟢 DOM LIVE UPDATE
           const now = Date.now();
           if (now - lastUpdate > 300) {
             lastUpdate = now;
@@ -144,13 +202,9 @@
               try {
                 let html =
                   replayIframe.contentDocument.documentElement.outerHTML;
-
-                // remove scripts (security)
                 html = html.replace(/<script[\s\S]*?<\/script>/gi, "");
-
                 const domFrame = document.getElementById("dom-frame");
                 const frameDoc = domFrame.contentDocument;
-
                 frameDoc.open();
                 frameDoc.write(html);
                 frameDoc.close();
@@ -163,16 +217,15 @@
           if (event?.type === "custom" && event.data?.source === "network") {
             const div = document.createElement("div");
             div.className = "req";
-
             const time = new Date(event.timestamp).toLocaleTimeString();
 
             div.innerHTML = `
-        <div><b>[${time}] ${event.data.method} ${event.data.url}</b></div>
-        ${event.data.status ? `<div>Status: ${event.data.status}</div>` : ""}
-        ${event.data.duration ? `<div>Time: ${event.data.duration} ms</div>` : ""}
-        ${event.data.error ? `<div class="error">Error: ${event.data.error}</div>` : ""}
-        ${event.data.response ? `<div>Response: ${escapeHtml(event.data.response)}</div>` : ""}
-      `;
+              <div><b>[${time}] ${event.data.method} ${event.data.url}</b></div>
+              ${event.data.status ? `<div>Status: ${event.data.status}</div>` : ""}
+              ${event.data.duration ? `<div>Time: ${event.data.duration} ms</div>` : ""}
+              ${event.data.error ? `<div class="error">Error: ${event.data.error}</div>` : ""}
+              ${event.data.response ? `<div>Response: ${escapeHtml(event.data.response)}</div>` : ""}
+            `;
 
             networkLog.appendChild(div);
             networkLog.scrollTop = networkLog.scrollHeight;
@@ -180,7 +233,6 @@
         });
       }
 
-      // 🔒 Prevent HTML injection
       function escapeHtml(str) {
         if (!str) return "";
         return str
